@@ -40,6 +40,10 @@ class DashboardScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person_outline_rounded, color: Color(0xFF64748B)),
+            onPressed: () => context.push('/profile'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFF64748B)),
             onPressed: () {
               ref.read(authNotifierProvider.notifier).signOut();
@@ -87,7 +91,7 @@ class DashboardScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              user?.email?.split('@').first.toUpperCase() ?? 'TEKNISI',
+                              user?.email?.split('@').first.toUpperCase() ?? 'PENGGUNA',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -97,7 +101,7 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              user?.email ?? 'teknisi@arsyamedikal.com',
+                              user?.email ?? 'pengguna@arsyamedikal.com',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 13,

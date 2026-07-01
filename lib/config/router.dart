@@ -7,9 +7,17 @@ import '../screens/auth/booting_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/dashboard/admin_dashboard_screen.dart';
+import '../screens/dashboard/teknisi_dashboard_screen.dart';
 import '../screens/tickets/ticket_list_screen.dart';
 import '../screens/tickets/create_ticket_screen.dart';
 import '../screens/tickets/ticket_detail_screen.dart';
+import '../screens/tickets/admin_ticket_list_screen.dart';
+import '../screens/tickets/teknisi_ticket_list_screen.dart';
+import '../screens/admin/admin_users_screen.dart';
+import '../screens/admin/admin_hospitals_screen.dart';
+import '../screens/admin/admin_reports_screen.dart';
+import '../screens/profile/profile_screen.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<dynamic> _subscription;
@@ -35,7 +43,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/boot',
     refreshListenable: GoRouterRefreshStream(authStateStream),
-    redirect: (context, state) {
+    redirect: (context, state) async {
       if (!bootCompleted) {
         return '/boot';
       }
@@ -49,7 +57,28 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
+      // Satu aplikasi dipakai bersama oleh 3 peran (Pengguna, Admin, Teknisi).
+      // Tentukan halaman utama & batasi akses berdasarkan role akun yang login.
+      final profile = await ref.read(userServiceProvider).getUserProfile(user.id);
+      final role = profile?.role ?? 'customer';
+      final homePath = role == 'admin' ? '/admin' : (role == 'teknisi' ? '/teknisi' : '/');
+
       if (isLoggingIn || isBooting) {
+        return homePath;
+      }
+
+      final isSharedRoute =
+          (state.matchedLocation.startsWith('/tickets/') && state.matchedLocation != '/tickets/create') ||
+              state.matchedLocation == '/profile';
+
+      if (role == 'admin' && !state.matchedLocation.startsWith('/admin') && !isSharedRoute) {
+        return '/admin';
+      }
+      if (role == 'teknisi' && !state.matchedLocation.startsWith('/teknisi') && !isSharedRoute) {
+        return '/teknisi';
+      }
+      if (role == 'customer' &&
+          (state.matchedLocation.startsWith('/admin') || state.matchedLocation.startsWith('/teknisi'))) {
         return '/';
       }
 
@@ -87,6 +116,47 @@ final routerProvider = Provider<GoRouter>((ref) {
           return TicketDetailScreen(ticketId: ticketId);
         },
       ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+
+      // ── Admin ──────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/admin/tickets',
+        builder: (context, state) => const AdminTicketListScreen(),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        builder: (context, state) => const AdminUsersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/hospitals',
+        builder: (context, state) => const AdminHospitalsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        builder: (context, state) => const AdminReportsScreen(),
+      ),
+
+      // ── Teknisi ────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/teknisi',
+        builder: (context, state) => const TeknisiDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/teknisi/tickets',
+        builder: (context, state) => const TeknisiTicketListScreen(),
+      ),
+      GoRoute(
+        path: '/teknisi/history',
+        builder: (context, state) => const TeknisiTicketListScreen(historyOnly: true),
+      ),
     ],
   );
 });
+
