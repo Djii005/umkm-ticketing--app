@@ -1,11 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 
 // Provider for the AuthService instance
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
+});
+
+// Provider for the UserService instance
+final userServiceProvider = Provider<UserService>((ref) {
+  return UserService();
 });
 
 // Provider to stream auth state changes
@@ -20,19 +27,51 @@ final currentUserProvider = Provider<User?>((ref) {
   return ref.watch(authServiceProvider).currentUser;
 });
 
+// Provider to fetch the current user's profile (contains role: admin | teknisi | customer)
+final currentUserProfileProvider = FutureProvider<UserModel?>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return null;
+  return ref.watch(userServiceProvider).getUserProfile(user.id);
+});
+
 // StateNotifier to handle auth loading and errors
 class AuthStateNotifier extends StateNotifier<AsyncValue<void>> {
   final AuthService _authService;
+  final UserService _userService;
 
-  AuthStateNotifier(this._authService) : super(const AsyncValue.data(null));
+  AuthStateNotifier(this._authService, this._userService) : super(const AsyncValue.data(null));
 
-  Future<void> signIn(String email, String password) async {
+  // If [expectedRole] is provided, sign-in will be rejected (and the session
+  // signed back out) when the account's role does not match the selected
+  // login tab (Pengguna / Admin / Teknisi) on the login screen.
+  Future<void> signIn(String email, String password, {String? expectedRole}) async {
     state = const AsyncValue.loading();
     try {
-      await _authService.signIn(email: email, password: password);
+      final response = await _authService.signIn(email: email, password: password);
+      final userId = response.user?.id;
+
+      if (expectedRole != null && userId != null) {
+        final profile = await _userService.getUserProfile(userId);
+        if (profile == null || profile.role != expectedRole) {
+          await _authService.signOut();
+          throw Exception('Akun ini tidak terdaftar sebagai ${_roleLabel(expectedRole)}.');
+        }
+      }
+
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    }
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'teknisi':
+        return 'Teknisi';
+      default:
+        return 'Pengguna';
     }
   }
 
@@ -64,5 +103,5 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<void>> {
 
 // Provider for AuthNotifier
 final authNotifierProvider = StateNotifierProvider<AuthStateNotifier, AsyncValue<void>>((ref) {
-  return AuthStateNotifier(ref.watch(authServiceProvider));
+  return AuthStateNotifier(ref.watch(authServiceProvider), ref.watch(userServiceProvider));
 });

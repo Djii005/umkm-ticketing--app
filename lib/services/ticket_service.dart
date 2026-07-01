@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/ticket_model.dart';
+import '../models/ticket_log_model.dart';
 
 class TicketService {
   final SupabaseClient _supabase = SupabaseConfig.client;
@@ -20,6 +21,16 @@ class TicketService {
         .from('tickets')
         .select('*, hospitals(*), equipment(*)');
     
+    return (response as List).map((json) => TicketModel.fromJson(json as Map<String, dynamic>)).toList();
+  }
+
+  // Fetch tickets assigned to a specific technician
+  Future<List<TicketModel>> getTicketsForTechnician(String technicianId) async {
+    final response = await _supabase
+        .from('tickets')
+        .select('*, hospitals(*), equipment(*)')
+        .eq('technician_id', technicianId);
+
     return (response as List).map((json) => TicketModel.fromJson(json as Map<String, dynamic>)).toList();
   }
 
@@ -62,18 +73,64 @@ class TicketService {
 
   // Update Ticket Status
   Future<void> updateTicketStatus(String ticketId, String status) async {
-    await _supabase.from('tickets').update({
-      'status': status,
-    }).eq('id', ticketId);
-    
+    final updateData = <String, dynamic>{'status': status};
+    if (status == 'resolved' || status == 'closed') {
+      updateData['resolved_at'] = DateTime.now().toIso8601String();
+    }
+
+    await _supabase.from('tickets').update(updateData).eq('id', ticketId);
+
     // Log the change
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId != null) {
       await _supabase.from('ticket_logs').insert({
         'ticket_id': ticketId,
         'user_id': currentUserId,
-        'action': 'Status updated to $status',
+        'action': 'Status diperbarui menjadi $status',
       });
     }
+  }
+
+  // Assign a technician to a ticket (used by admin)
+  Future<void> assignTechnician(String ticketId, String technicianId) async {
+    await _supabase.from('tickets').update({
+      'technician_id': technicianId,
+      'status': 'assigned',
+    }).eq('id', ticketId);
+
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId != null) {
+      await _supabase.from('ticket_logs').insert({
+        'ticket_id': ticketId,
+        'user_id': currentUserId,
+        'action': 'Teknisi ditugaskan',
+      });
+    }
+  }
+
+  // Fetch handling history (logs) for a ticket
+  Future<List<TicketLogModel>> getTicketLogs(String ticketId) async {
+    final response = await _supabase
+        .from('ticket_logs')
+        .select('*, users(full_name, role)')
+        .eq('ticket_id', ticketId)
+        .order('created_at');
+
+    return (response as List)
+        .map((json) => TicketLogModel.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  // Add a work note (used by technician while handling a ticket)
+  Future<void> addTicketNote(String ticketId, String note) async {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) throw Exception('User not logged in');
+
+    await _supabase.from('ticket_logs').insert({
+      'ticket_id': ticketId,
+      'user_id': currentUserId,
+      'action': 'Catatan pekerjaan ditambahkan',
+      'notes': note,
+    });
   }
 }

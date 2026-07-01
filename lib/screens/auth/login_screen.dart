@@ -18,6 +18,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
 
+  // Peran yang dipilih pada layar login: 'customer' (Pengguna), 'admin', atau 'teknisi'.
+  // Aplikasi ini dipakai bersama oleh ketiga peran, cukup dibedakan lewat tombol berikut.
+  String _selectedRole = 'customer';
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -30,7 +34,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(authNotifierProvider.notifier).signIn(
         _emailController.text.trim(),
         _passwordController.text,
+        expectedRole: _selectedRole,
       );
+    }
+  }
+
+  String _roleTitle(String role) {
+    switch (role) {
+      case 'admin':
+        return 'Login Admin';
+      case 'teknisi':
+        return 'Login Teknisi';
+      default:
+        return 'Login Pengguna';
     }
   }
 
@@ -44,6 +60,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         String errorMsg = state.error.toString();
         if (errorMsg.contains('Invalid login credentials')) {
           errorMsg = 'Email atau password salah. Silakan periksa kembali.';
+        } else if (errorMsg.startsWith('Exception: ')) {
+          errorMsg = errorMsg.replaceFirst('Exception: ', '');
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
@@ -150,7 +168,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: const Color(0xFF94A3B8), // Slate 400
                         ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 28),
+
+                      // Role Selector: Satu aplikasi untuk 3 peran (Pengguna, Admin, Teknisi)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            _RoleTabButton(
+                              label: 'Pengguna',
+                              icon: Icons.person_rounded,
+                              isSelected: _selectedRole == 'customer',
+                              onTap: () => setState(() => _selectedRole = 'customer'),
+                            ),
+                            _RoleTabButton(
+                              label: 'Admin',
+                              icon: Icons.admin_panel_settings_rounded,
+                              isSelected: _selectedRole == 'admin',
+                              onTap: () => setState(() => _selectedRole = 'admin'),
+                            ),
+                            _RoleTabButton(
+                              label: 'Teknisi',
+                              icon: Icons.build_rounded,
+                              isSelected: _selectedRole == 'teknisi',
+                              onTap: () => setState(() => _selectedRole = 'teknisi'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _roleTitle(_selectedRole),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF60A5FA),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       
                       // Email Field
                       Text(
@@ -302,31 +362,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // Transition to Register
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Belum terdaftar?',
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              context.push('/register');
-                            },
-                            child: Text(
-                              'Buat Akun Baru',
+                      // Transition to Register (hanya untuk peran Pengguna, akun Admin/Teknisi dibuat oleh Admin)
+                      if (_selectedRole == 'customer')
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Belum terdaftar?',
                               style: GoogleFonts.inter(
-                                color: const Color(0xFF60A5FA),
-                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            TextButton(
+                              onPressed: () {
+                                context.push('/register');
+                              },
+                              child: Text(
+                                'Buat Akun Baru',
+                                style: GoogleFonts.inter(
+                                  color: const Color(0xFF60A5FA),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -334,6 +395,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RoleTabButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _RoleTabButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
