@@ -1,0 +1,13 @@
+# Ignore original ticketing app
+ticketing_app/
+
+# Ignore zip file and planning files
+umkm-ticketing--app-main.zip
+plan.md
+
+# Ignore local Gemini agents configs
+.agents/
+
+# Standard system ignores
+.DS_Store
+Thumbs.db
